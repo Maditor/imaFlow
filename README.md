@@ -1,4 +1,4 @@
-# 🪄 AI Redraw Panel — CEP Extension cho Photoshop
+# 🪄 Remini — CEP Extension cho Photoshop
 
 Panel tiện ích trong Photoshop hỗ trợ workflow **redraw ảnh bằng AI** (Gemini "Nano Banana"): copy vùng chọn, dán ảnh AI trả về, tự canh chỉnh vị trí — không cần copy-paste thủ công từng bước. Tương thích **Photoshop CC 2018 (v19.0) trở lên**, cả Windows lẫn macOS.
 
@@ -26,26 +26,29 @@ Panel tiện ích trong Photoshop hỗ trợ workflow **redraw ảnh bằng AI**
 ### Windows — cài tự động
 1. Tải hoặc clone repo này về máy.
 2. Chạy file **`install.bat`** (double-click). Script sẽ tự bật chế độ debug cho CEP và copy extension vào đúng thư mục.
-3. Khởi động lại Photoshop → **Window > Extensions > AI Redraw Panel**.
+3. Khởi động lại Photoshop → **Window > Extensions > Remini**.
 
 > Muốn gỡ cài đặt: chạy `uninstall.bat`.
 
 ### macOS — cài tự động
+> ⚠️ *Script này chưa được test trực tiếp trên máy macOS thật. Nếu chạy lỗi (ví dụ do Gatekeeper chặn), hãy dùng mục **"Cài thủ công"** bên dưới — cách đó chắc chắn hơn.*
+
 1. Tải hoặc clone repo này về máy.
 2. Mở Terminal, `cd` vào thư mục repo, chạy:
    ```bash
    bash install.sh
    ```
-3. Khởi động lại Photoshop → **Window > Extensions > AI Redraw Panel**.
+   Nếu bị chặn bởi Gatekeeper, chạy thêm trước đó: `xattr -cr .`
+3. Khởi động lại Photoshop → **Window > Extensions > Remini**.
 
 ### Cài thủ công (mọi hệ điều hành)
 1. Bật chế độ debug cho CEP (để Photoshop chấp nhận extension chưa ký số):
    - **Windows**: mở Registry Editor → tạo `HKEY_CURRENT_USER\Software\Adobe\CSXS.<version>\PlayerDebugMode` = `1` (kiểu String). Thử các version `8`–`12` tuỳ bản Photoshop.
    - **macOS**: Terminal → `defaults write com.adobe.CSXS.<version> PlayerDebugMode 1`
-2. Copy thư mục `AIRedrawPanel/` vào:
+2. Copy thư mục `Remini/` vào:
    - **Windows**: `%APPDATA%\Adobe\CEP\extensions\`
    - **macOS**: `~/Library/Application Support/Adobe/CEP/extensions/`
-3. Mở Photoshop → **Window > Extensions > AI Redraw Panel**.
+3. Mở Photoshop → **Window > Extensions > Remini**.
 
 ## ⚠️ Giới hạn cần biết
 
@@ -56,7 +59,7 @@ Panel tiện ích trong Photoshop hỗ trợ workflow **redraw ảnh bằng AI**
 ## 🗂️ Cấu trúc dự án
 
 ```
-AIRedrawPanel/
+Remini/
 ├── CSXS/manifest.xml       # Khai báo extension, host app, phiên bản hỗ trợ
 ├── icons/                  # Icon mono cho theme sáng/tối của Photoshop
 ├── client/                 # Giao diện panel (HTML/CSS/JS)
