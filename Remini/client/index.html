@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>Remini</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div id="aiToolbar">
+        <button id="aiCopyMarkBtn" title="Copy vùng chọn + tạo marker">📋<span>Copy &amp; Mark</span></button>
+        <button id="aiPasteAlignBtn" title="Paste ảnh AI + canh vào marker">🎯<span>Paste &amp; Align</span></button>
+        <button id="openGeminiBtn" title="Mở Gemini bằng trình duyệt ngoài">↗<span>Mở Gemini</span></button>
+        <button id="promptToggleBtn" title="Mở/đóng khung prompt">📝<span>Prompt</span></button>
+    </div>
+
+    <div id="promptPanel" class="hidden">
+        <textarea id="promptText" rows="5" placeholder="Dán / soạn prompt ở đây..."></textarea>
+        <div id="promptActions">
+            <button id="promptCopyBtn">Copy prompt</button>
+            <button id="promptClearBtn">Xoá</button>
+        </div>
+    </div>
+
+    <div id="aiStatus"></div>
+
+    <script src="./CSInterface.js"></script>
+    <script src="./main.js"></script>
+</body>
+</html>
