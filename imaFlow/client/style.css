@@ -1,0 +1,188 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+}
+
+html, body {
+    background: #2b2b2b;
+    color: #ddd;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    padding: 6px;
+    gap: 6px;
+}
+
+/* ---------- Toolbar: 5 nut icon-only, chieu ngang tu scale deu nhau,
+   chi giu co dinh chieu cao va khoang cach giua cac nut ---------- */
+#aiToolbar {
+    display: flex;
+    gap: 10px;
+}
+
+#aiToolbar button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #3f3f3f;
+    border: 1px solid #4d4d4d;
+    color: #ddd;
+    flex: 1 1 0;
+    min-width: 22px;
+    height: 26px;
+    padding: 0;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#aiToolbar button svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    flex-shrink: 0;
+}
+
+#aiToolbar button:hover {
+    background: #4d4d4d;
+    border-color: #666;
+}
+
+#aiToolbar button:active {
+    background: #5a5a5a;
+}
+
+/* Nut Cai dat (5th button) hoi khac mau mot chut de phan biet voi 4 nut chuc nang */
+#settingsToggleBtn {
+    background: #363636;
+    color: #bbb;
+}
+
+#settingsToggleBtn:hover {
+    color: #fff;
+}
+
+/* ---------- Submenu cai dat ---------- */
+#settingsPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: #333;
+    border: 1px solid #4d4d4d;
+    border-radius: 6px;
+    padding: 8px;
+}
+
+#settingsPanel.hidden {
+    display: none;
+}
+
+.settingsSection {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.settingsSection label {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #ccc;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.settingsRow {
+    display: flex;
+    gap: 6px;
+}
+
+#exePathInput {
+    flex: 1;
+    min-width: 0;
+    background: #1e1e1e;
+    color: #eee;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 5px 7px;
+    font-size: 11px;
+}
+
+#browseExeBtn {
+    background: #4a4a4a;
+    border: none;
+    color: #ddd;
+    padding: 5px 9px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+#browseExeBtn:hover {
+    background: #5a5a5a;
+}
+
+#promptText {
+    width: 100%;
+    resize: vertical;
+    background: #1e1e1e;
+    color: #eee;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 5px 7px;
+    font-size: 12px;
+    font-family: inherit;
+}
+
+/* Checkbox "an dong trang thai" */
+.checkboxRow {
+    flex-direction: row;
+    align-items: center;
+}
+
+.checkboxLabel {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: normal;
+    color: #ddd;
+    cursor: pointer;
+}
+
+.checkboxLabel input[type="checkbox"] {
+    width: 13px;
+    height: 13px;
+    cursor: pointer;
+    accent-color: #4d90fe;
+}
+
+.closeBtn {
+    background: #4a4a4a;
+    border: none;
+    color: #ddd;
+    padding: 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.closeBtn:hover {
+    background: #5a5a5a;
+}
+
+#aiStatus {
+    font-size: 10.5px;
+    min-height: 13px;
+    color: #7fd77f;
+    text-align: center;
+}
+
+#aiStatus.hidden {
+    display: none;
+}
