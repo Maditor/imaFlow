@@ -1,4 +1,4 @@
-# imaFlow — CEP Extension cho Photoshop
+# 🪄 imaFlow — CEP Extension cho Photoshop
 
 Panel tiện ích trong Photoshop hỗ trợ workflow **redraw ảnh bằng AI** (Gemini "Nano Banana"): copy vùng chọn, dán ảnh AI trả về, tự canh chỉnh vị trí — không cần copy-paste thủ công từng bước. Tương thích **Photoshop CC 2018 (v19.0) trở lên**, cả Windows lẫn macOS.
 

@@ -1,13 +1,13 @@
 @echo off
 setlocal enabledelayedexpansion
-title AI Redraw Panel - Trinh cai dat CEP cho Photoshop
+title imaFlow - Trinh cai dat CEP cho Photoshop
 
 set "EXT_NAME=imaFlow"
 set "SRC_DIR=%~dp0%EXT_NAME%"
 set "DEST_DIR=%APPDATA%\Adobe\CEP\extensions\%EXT_NAME%"
 
 echo ================================================
-echo    AI Redraw Panel - Trinh cai dat cho Photoshop
+echo    imaFlow - Trinh cai dat cho Photoshop
 echo ================================================
 echo.
 
@@ -22,10 +22,10 @@ if not exist "%SRC_DIR%" (
 
 REM ---- 2. Bat PlayerDebugMode de Photoshop chap nhan extension chua ky ----
 echo [1/3] Dang bat che do Debug cho CEP...
-for %%V in (6 7 8 9 10 11 12) do (
+for %%V in (6 7 8 9 10 11 12 13 14) do (
     reg add "HKCU\Software\Adobe\CSXS.%%V" /v PlayerDebugMode /t REG_SZ /d 1 /f >nul 2>&1
 )
-echo       -^> Da bat PlayerDebugMode cho CSXS.6 den CSXS.12
+echo       -^> Da bat PlayerDebugMode cho CSXS.6 den CSXS.14
 
 REM ---- 3. Copy extension vao thu muc CEP cua Adobe ----
 echo.
@@ -47,12 +47,20 @@ if not exist "%DEST_DIR%\CSXS\manifest.xml" (
 )
 echo       -^> Da cai vao: %DEST_DIR%
 
+REM ---- Kiem tra lai: khoa debug mode cua CSXS.8 (Photoshop 2018) da duoc ghi chua ----
+reg query "HKCU\Software\Adobe\CSXS.8" /v PlayerDebugMode 2>nul | find "0x1" >nul
+if errorlevel 1 reg query "HKCU\Software\Adobe\CSXS.8" /v PlayerDebugMode 2>nul | find "1" >nul
+if errorlevel 1 (
+    echo [CANH BAO] Khong ghi duoc PlayerDebugMode cho CSXS.8 ^(Photoshop 2018^).
+    echo            Thu chuot phai install.bat ^> Run as administrator, hoac them khoa bang tay.
+)
+
 REM ---- 4. Hoan tat ----
 echo.
 echo [3/3] Cai dat hoan tat!
 echo.
 echo    Hay KHOI DONG LAI Photoshop, sau do vao:
-echo    Window ^> Extensions ^> AI Redraw Panel
+echo    Window ^> Extensions ^> imaFlow
 echo.
 echo ================================================
 pause
