@@ -33,11 +33,27 @@ function aiCopyAndMark_main() {
     }
 
     // Copy merged (toàn bộ pixel hiển thị trong vùng chọn) qua ActionManager
+    // Cách 1: ActionManager (nhanh). Cách 2 (dự phòng cho Photoshop đời cũ như 2018):
+    // DOM selection.copy(true) = Copy Merged. Báo kèm lý do thật nếu cả hai đều lỗi.
+    var copyErr1 = "", copyErr2 = "";
+    var copied = false;
     try {
         var desc = new ActionDescriptor();
         executeAction(charIDToTypeID("CpyM"), desc, DialogModes.NO);
-    } catch (e) {
-        throw new Error("Không copy được. Kiểm tra lại visibility của layer.");
+        copied = true;
+    } catch (e1) {
+        copyErr1 = e1.message;
+    }
+    if (!copied) {
+        try {
+            doc.selection.copy(true);
+            copied = true;
+        } catch (e2) {
+            copyErr2 = e2.message;
+        }
+    }
+    if (!copied) {
+        throw new Error("Không copy được (" + copyErr1 + " | " + copyErr2 + ")");
     }
 
     // Tạo layer marker
