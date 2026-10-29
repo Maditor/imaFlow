@@ -17,7 +17,7 @@ body {
     gap: 6px;
 }
 
-/* ---------- Toolbar: 5 nut icon-only, chieu ngang tu scale deu nhau,
+/* ---------- Toolbar: 3 nut icon-only, chieu ngang tu scale deu nhau,
    chi giu co dinh chieu cao va khoang cach giua cac nut ---------- */
 #aiToolbar {
     display: flex;
@@ -35,13 +35,13 @@ body {
     min-width: 22px;
     height: 26px;
     padding: 0;
-    border-radius: 5px;
+    border-radius: 6px;
     cursor: pointer;
 }
 
 #aiToolbar button svg {
-    width: 14px;
-    height: 14px;
+    width: 19px;
+    height: 19px;
     stroke: currentColor;
     flex-shrink: 0;
 }

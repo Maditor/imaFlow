@@ -43,3 +43,15 @@ Sau khi sửa, chạy lại `build.bat` để build bản exe mới.
 - Đã cài **Brave**, **Cốc Cốc**, Chrome, hoặc Edge (ứng dụng tự dò tìm theo thứ tự ưu tiên đó, dùng trình duyệt nào tìm thấy trước)
 
 File `GeminiWidget.exe` sau khi build sẽ có icon riêng (hình ghim + lấp lánh, file `icon.ico` đi kèm) — không cần làm gì thêm, `build.bat` tự gắn icon vào.
+
+## Tự dán ảnh + prompt (dùng cùng panel imaFlow)
+
+Chạy với tham số `GeminiWidget.exe --autopaste <file-prompt.txt>` (panel imaFlow tự gọi sau mỗi lần Copy & Mark):
+1. Đưa cửa sổ Gemini ra trước và kiểm tra nó thật sự đang ở trên cùng (nếu không thì dừng, không gửi phím).
+2. `Ctrl+V` dán ảnh đang có trong clipboard.
+3. Chờ ~2 giây cho ảnh tải lên, đưa prompt vào clipboard, `Ctrl+V` dán prompt. Không tự bấm Enter.
+
+Các mốc thời gian chỉnh ở đầu `gemini_widget.py`: `AUTOPASTE_LOAD_WAIT`, `AUTOPASTE_FOCUS_DELAY`, `AUTOPASTE_IMAGE_WAIT`. Trước khi dán, widget tự **click chuột vào ô nhập** của Gemini để lấy lại focus (xong trả con trỏ chuột về chỗ cũ).
+
+- Cửa sổ widget bị giới hạn **tối đa 1/4 chiều ngang màn hình** để vị trí ô nhập luôn ổn định.
+- Mặc định click ở giữa ngang, cách đáy cửa sổ 70px. Nếu click lệch: chuột phải icon ở khay hệ thống → **Hieu chinh vi tri click o nhap** → click 1 lần vào ô nhập của Gemini (15 giây). Vị trí lưu ở `%APPDATA%\GeminiWidget\click_config.json`.

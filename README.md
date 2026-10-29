@@ -8,9 +8,7 @@ Panel tiện ích trong Photoshop hỗ trợ workflow **redraw ảnh bằng AI**
 |---|---|
 | **Copy & Mark** | Copy vùng chọn hiện tại (merged) vào clipboard + tạo layer marker (màu neon) đánh dấu toạ độ |
 | **Paste & Align** | Dán ảnh AI từ clipboard, tự động resize + canh đúng vị trí marker, tạo mask |
-| **Mở Gemini** | Ưu tiên chạy đúng file `GeminiWidget.exe` đã cài đặt (tự ghim always-on-top); nếu chưa cài đặt, tự dò trình duyệt và mở app-mode như bản thường |
-| **Prompt** | Bấm là copy liền prompt đã lưu sẵn vào clipboard — không cần mở khung soạn thảo mỗi lần |
-| **Cài đặt** (nút full-width dưới toolbar) | Mở submenu để: (1) chọn đường dẫn `GeminiWidget.exe`, (2) soạn/lưu nội dung prompt |
+| **Cài đặt** | Mở submenu để: (1) chọn đường dẫn `GeminiWidget.exe`, (2) soạn/lưu nội dung prompt, (3) ẩn dòng trạng thái. Sau mỗi lần **Copy & Mark**, panel luôn tự mở GeminiWidget và dán ảnh + prompt đã lưu, |
 
 Icon các nút dùng SVG line-art đơn sắc, đồng bộ với các CEP extension khác trong series (TypoVision, TypoCore...).
 
@@ -58,6 +56,7 @@ Icon các nút dùng SVG line-art đơn sắc, đồng bộ với các CEP exten
 `GeminiWidget` là app nhỏ đi kèm, mở Gemini bằng Chrome/Brave/Cốc Cốc/Edge thật (app-mode, không thanh tab) và tự ghim **always-on-top** bằng Win32 API — không cần cài PowerToys hay công cụ ngoài nào khác.
 
 - Tự nhớ kích thước & vị trí cửa sổ giữa các lần mở.
+- Tự dán: sau khi **Copy & Mark** widget đưa Gemini ra trước, dán ảnh rồi dán prompt (không tự bấm Enter). Nếu không đưa được Gemini ra trước, nó dừng lại thay vì dán nhầm vào Photoshop.
 - Chỉ chạy 1 bản duy nhất — bấm mở lần nữa sẽ tự đưa cửa sổ cũ ra trước thay vì mở trùng.
 - Icon riêng (hình ghim), có icon khay hệ thống để bật/tắt ghim hoặc thoát.
 

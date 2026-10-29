@@ -3,8 +3,6 @@
 
     var aiCopyMarkBtn = document.getElementById("aiCopyMarkBtn");
     var aiPasteAlignBtn = document.getElementById("aiPasteAlignBtn");
-    var openGeminiBtn = document.getElementById("openGeminiBtn");
-    var promptCopyMainBtn = document.getElementById("promptCopyMainBtn");
 
     var settingsToggleBtn = document.getElementById("settingsToggleBtn");
     var settingsPanel = document.getElementById("settingsPanel");
@@ -35,7 +33,12 @@
     aiCopyMarkBtn.addEventListener("click", function () {
         setStatus("Đang copy vùng chọn...");
         csInterface.evalScript("aiCopyAndMark()", function (result) {
-            setStatus(result || "Đã copy + tạo marker.", result && result.indexOf("Lỗi") === 0);
+            var copied = !!result && result.indexOf("Đã copy") === 0;
+            setStatus(result || "Đã copy + tạo marker.", !copied);
+            // Chỉ tự dán khi copy THÀNH CÔNG (ảnh đã nằm trong clipboard)
+            if (copied) {
+                sendToGemini();
+            }
         });
     });
 
@@ -46,11 +49,36 @@
         });
     });
 
-    /* ---------- Mở Gemini: ưu tiên chạy đúng GeminiWidget.exe đã cài đặt ---------- */
-    openGeminiBtn.addEventListener("click", function () {
-        openGeminiPinnable();
-    });
+    /* ---------- Tự dán ảnh + prompt vào Gemini (nhờ GeminiWidget.exe) ---------- */
+    // Ghi prompt ra file tạm rồi gọi GeminiWidget.exe --autopaste <file>.
+    // Widget sẽ: đưa Gemini ra trước -> Ctrl+V dán ảnh (đang ở clipboard) -> dán prompt.
+    // KHÔNG tự bấm Enter. Ở đây tuyệt đối không ghi đè clipboard để ảnh còn nguyên.
+    function sendToGemini() {
+        var exePath = localStorage.getItem(EXE_PATH_STORAGE_KEY);
+        if (!exePath) {
+            setStatus("Tự dán cần GeminiWidget.exe — chọn đường dẫn trong Cài đặt.", true);
+            return;
+        }
+        try {
+            var fs = require("fs");
+            var os = require("os");
+            var path = require("path");
+            if (!fs.existsSync(exePath)) {
+                setStatus("Không thấy GeminiWidget.exe ở đường dẫn đã lưu — kiểm tra lại trong Cài đặt.", true);
+                return;
+            }
+            var promptFile = path.join(os.tmpdir(), "imaflow_prompt.txt");
+            fs.writeFileSync(promptFile, localStorage.getItem(PROMPT_STORAGE_KEY) || "", "utf8");
 
+            var spawn = require("child_process").spawn;
+            spawn(exePath, ["--autopaste", promptFile], { detached: true, stdio: "ignore" }).unref();
+            setStatus("Đã copy — đang dán ảnh + prompt vào Gemini...");
+        } catch (e) {
+            setStatus("Không gọi được GeminiWidget để tự dán.", true);
+        }
+    }
+
+    /* ---------- Mở Gemini: ưu tiên chạy đúng GeminiWidget.exe đã cài đặt ---------- */
     function openGeminiPinnable() {
         var savedExePath = localStorage.getItem(EXE_PATH_STORAGE_KEY);
 
@@ -156,18 +184,6 @@
         }
     }
 
-    promptCopyMainBtn.addEventListener("click", function () {
-        var saved = localStorage.getItem(PROMPT_STORAGE_KEY) || "";
-        if (!saved.trim()) {
-            setStatus("Chưa có prompt nào được lưu — mở ⚙️ Cài đặt để soạn prompt trước.", true);
-            return;
-        }
-        if (copyTextToClipboard(saved)) {
-            setStatus("Đã copy prompt vào clipboard.");
-        } else {
-            setStatus("Không copy được prompt.", true);
-        }
-    });
 
     /* ---------- Submenu cài đặt ---------- */
     settingsToggleBtn.addEventListener("click", function () {
