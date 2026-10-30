@@ -10,7 +10,7 @@
 
 ## Bước 2 — Đẩy code lên (lần đầu)
 
-Mở Terminal (macOS) hoặc Command Prompt / PowerShell (Windows), `cd` vào thư mục dự án (`imaFlow-repo` hoặc tên anh đặt), rồi chạy lần lượt:
+Mở Command Prompt hoặc PowerShell, `cd` vào thư mục dự án (`imaFlow-repo` hoặc tên anh đặt), rồi chạy lần lượt:
 
 ```bash
 git init

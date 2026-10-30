@@ -1,6 +1,6 @@
 # 🪄 imaFlow — CEP Extension cho Photoshop
 
-Panel tiện ích trong Photoshop hỗ trợ workflow **redraw ảnh bằng AI** (Gemini "Nano Banana"): copy vùng chọn, dán ảnh AI trả về, tự canh chỉnh vị trí — không cần copy-paste thủ công từng bước. Tương thích **Photoshop CC 2018 (v19.0) trở lên**, cả Windows lẫn macOS.
+Panel tiện ích trong Photoshop hỗ trợ workflow **redraw ảnh bằng AI** (Gemini "Nano Banana"): copy vùng chọn, dán ảnh AI trả về, tự canh chỉnh vị trí — không cần copy-paste thủ công từng bước. Tương thích **Photoshop CC 2018 (v19.0) trở lên** trên **Windows 10/11** (chỉ hỗ trợ Windows).
 
 ## ✨ Tính năng
 
@@ -28,31 +28,17 @@ Icon các nút dùng SVG line-art đơn sắc, đồng bộ với các CEP exten
 
 ## 📦 Cài đặt panel imaFlow
 
-### Windows — cài tự động
+### Cài tự động
 1. Tải hoặc clone repo này về máy.
 2. Chạy file **`install.bat`** (double-click). Script tự bật chế độ debug cho CEP và copy extension vào đúng thư mục.
 3. Khởi động lại Photoshop → **Window > Extensions > imaFlow**.
 
 > Muốn gỡ cài đặt: chạy `uninstall.bat`.
 
-### macOS — cài tự động
-> ⚠️ Script này chưa được test trực tiếp trên máy macOS thật. Nếu chạy lỗi (ví dụ do Gatekeeper chặn), dùng mục **"Cài thủ công"** bên dưới.
-
-1. Tải hoặc clone repo này về máy.
-2. Mở Terminal, `cd` vào thư mục repo, chạy:
-   ```bash
-   bash install.sh
-   ```
-   Nếu bị Gatekeeper chặn, chạy thêm trước đó: `xattr -cr .`
-3. Khởi động lại Photoshop → **Window > Extensions > imaFlow**.
-
-### Cài thủ công (mọi hệ điều hành)
+### Cài thủ công
 1. Bật chế độ debug cho CEP (để Photoshop chấp nhận extension chưa ký số):
-   - **Windows**: mở Registry Editor → tạo `HKEY_CURRENT_USER\Software\Adobe\CSXS.<version>\PlayerDebugMode` = `1` (kiểu String). Thử các version `8`–`12` tuỳ bản Photoshop.
-   - **macOS**: Terminal → `defaults write com.adobe.CSXS.<version> PlayerDebugMode 1`
-2. Copy thư mục `imaFlow/` vào:
-   - **Windows**: `%APPDATA%\Adobe\CEP\extensions\`
-   - **macOS**: `~/Library/Application Support/Adobe/CEP/extensions/`
+   mở Registry Editor → tạo `HKEY_CURRENT_USER\Software\Adobe\CSXS.<version>\PlayerDebugMode` = `1` (kiểu String). Thử các version `8`–`12` tuỳ bản Photoshop (Photoshop 2018 dùng `CSXS.8`).
+2. Copy thư mục `imaFlow/` vào `%APPDATA%\Adobe\CEP\extensions\`
 3. Mở Photoshop → **Window > Extensions > imaFlow**.
 
 ## 📌 GeminiWidget — ghim cửa sổ Gemini luôn nổi phía trước (Windows)
@@ -90,7 +76,7 @@ imaFlow-repo/
 │   ├── host/index.jsx          # ExtendScript xử lý Copy & Mark / Paste & Align
 │   └── .debug                  # Cấu hình debug qua Chrome DevTools (port 8088)
 ├── GeminiWidget/               # App pin cửa sổ Gemini (Python -> .exe)
-├── install.bat / install.sh    # Script cài đặt panel tự động
+├── install.bat                 # Script cài đặt panel tự động
 ├── uninstall.bat                 # Script gỡ cài đặt (Windows)
 └── HUONG_DAN_GITHUB.md            # Hướng dẫn đưa repo lên GitHub + Releases
 ```
