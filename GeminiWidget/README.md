@@ -51,7 +51,25 @@ Chạy với tham số `GeminiWidget.exe --autopaste <file-prompt.txt>` (panel i
 2. `Ctrl+V` dán ảnh đang có trong clipboard.
 3. Chờ ~2 giây cho ảnh tải lên, đưa prompt vào clipboard, `Ctrl+V` dán prompt. Không tự bấm Enter.
 
-Các mốc thời gian chỉnh ở đầu `gemini_widget.py`: `AUTOPASTE_LOAD_WAIT`, `AUTOPASTE_FOCUS_DELAY`, `AUTOPASTE_IMAGE_WAIT`. Trước khi dán, widget tự **click chuột vào ô nhập** của Gemini để lấy lại focus (xong trả con trỏ chuột về chỗ cũ).
+Các mốc thời gian chỉnh ở đầu `gemini_widget.py`: `AUTOPASTE_LOAD_WAIT`, `AUTOPASTE_FOCUS_DELAY`, `AUTOPASTE_IMAGE_WAIT`. Trong lúc tự dán, con trỏ chuột chuyển thành vòng xoay "đang tải"; dán xong prompt widget đợi ~1 giây (`AUTOPASTE_SEND_DELAY`) rồi tự nhấn **Enter** để gửi. Nếu cửa sổ Gemini không còn ở trên cùng thì không nhấn Enter.
+
+Trước khi dán, widget tự **click chuột vào ô nhập** của Gemini để lấy lại focus (xong trả con trỏ chuột về chỗ cũ).
 
 - Cửa sổ widget bị giới hạn **tối đa 1/4 chiều ngang màn hình** để vị trí ô nhập luôn ổn định.
 - Mặc định click ở giữa ngang, cách đáy cửa sổ 70px. Nếu click lệch: chuột phải icon ở khay hệ thống → **Hieu chinh vi tri click o nhap** → click 1 lần vào ô nhập của Gemini (15 giây). Vị trí lưu ở `%APPDATA%\GeminiWidget\click_config.json`.
+
+### Chống dán nhầm / dán thiếu (bản sửa lỗi focus)
+
+- Widget chỉ nhận **cửa sổ trình duyệt** (class `Chrome_WidgetWin_1` của Brave/Cốc Cốc/Chrome/Edge) là Gemini — không bao giờ nhận nhầm Photoshop đang mở file `Gemini_Generated_Image_xxx.png`.
+- Bản đang chạy lưu HWND cửa sổ Gemini vào `%APPDATA%\GeminiWidget\state.json`; các lần `--autopaste` sau dùng đúng cửa sổ đó.
+- Trước khi dán, đợi clipboard **thật sự có ảnh** (Photoshop copy xong) và ép Photoshop render ảnh ngay, nên Chrome dán được ảnh trọn vẹn.
+- Chỉ click ô nhập **trước lần dán ảnh**; bước dán prompt không click lại (tránh click trúng thumbnail/nút X làm mất ảnh).
+- Ảnh càng nặng thì chờ upload càng lâu (+0.4 giây/MB, tối đa +6 giây) trước khi dán prompt và nhấn Enter.
+- Bấm Copy & Mark liên tục: các lần tự dán xếp hàng chạy lần lượt, không chen nhau.
+
+Chỉnh thời gian không cần build lại — tạo file `%APPDATA%\GeminiWidget\timing_config.json`:
+```json
+{ "image_wait": 2.0, "send_delay": 1.0, "per_mb": 0.4, "max_extra": 6, "auto_enter": true,
+  "wait_result": true, "result_timeout": 600 }
+```
+`wait_result`: sau khi gửi, chờ ảnh được "Sao chép" trong Gemini để panel imaFlow tự dán về Photoshop (`result_timeout` = số giây chờ tối đa).

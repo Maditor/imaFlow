@@ -15,12 +15,16 @@ function aiCopyAndMark() {
     var doc = app.activeDocument;
 
     try {
+        _aiLastMarker = "";
         doc.suspendHistory("Copy AI & Mark Target", "aiCopyAndMark_main()");
-        return "Đã copy vùng chọn + tạo marker.";
+        // Kèm "||docID|layerID" để panel nhớ đúng marker này (tự dán ảnh tải về sau đó)
+        return "Đã copy vùng chọn + tạo marker." + (_aiLastMarker ? "||" + _aiLastMarker : "");
     } catch (e) {
         return "Lỗi: " + e.message;
     }
 }
+
+var _aiLastMarker = "";
 
 function aiCopyAndMark_main() {
     var doc = app.activeDocument;
@@ -79,6 +83,12 @@ function aiCopyAndMark_main() {
         doc.selection.fill(neonColor);
         doc.selection.deselect();
     } catch (e) {}
+
+    try {
+        _aiLastMarker = _aiActiveDocID() + "|" + _aiActiveLayerID();
+    } catch (e) {
+        _aiLastMarker = "";
+    }
 }
 
 /* ==========================================================
@@ -103,6 +113,24 @@ function aiPasteToMarker() {
 }
 
 function aiPasteToMarker_main() {
+    _aiInsertAndAlign(function (doc) {
+        try {
+            doc.paste();
+        } catch (e) {
+            throw new Error("Clipboard đang trống — hãy copy ảnh AI trước.");
+        }
+        try {
+            executeAction(stringIDToTypeID("newPlacedLayer"), undefined, DialogModes.NO);
+        } catch (e) {
+            // Không fatal — một số phiên bản Photoshop vẫn paste đúng dù bước
+            // convert Smart Object báo lỗi. Bỏ qua và tiếp tục.
+        }
+    });
+}
+
+// Chèn ảnh (insertFn) rồi resize + canh vào layer marker đang active, rasterize,
+// xoá marker, tạo mask. Dùng chung cho Paste & Align và tự dán file tải về.
+function _aiInsertAndAlign(insertFn) {
     var doc = app.activeDocument;
     var markerLayer = doc.activeLayer;
 
@@ -119,21 +147,19 @@ function aiPasteToMarker_main() {
     var targetWidth = targetRight - targetLeft;
     var targetHeight = targetBottom - targetTop;
 
-    try {
-        doc.paste();
-    } catch (e) {
-        throw new Error("Clipboard đang trống — hãy copy ảnh AI trước.");
-    }
+    var markerID = -1;
+    try { markerID = _aiActiveLayerID(); } catch (eId) {}
 
-    var idnewPlacedLayer = stringIDToTypeID("newPlacedLayer");
-    try {
-        executeAction(idnewPlacedLayer, undefined, DialogModes.NO);
-    } catch (e) {
-        // Không fatal — một số phiên bản Photoshop vẫn paste đúng dù bước
-        // convert Smart Object báo lỗi. Bỏ qua và tiếp tục.
-    }
+    insertFn(doc);
 
     var aiLayer = doc.activeLayer;
+    try {
+        if (markerID !== -1 && _aiActiveLayerID() === markerID) {
+            throw new Error("Không chèn được ảnh vào document.");
+        }
+    } catch (eChk) {
+        if (eChk.message === "Không chèn được ảnh vào document.") throw eChk;
+    }
 
     var aiBounds = aiLayer.bounds;
     var aiWidth = aiBounds[2].as("px") - aiBounds[0].as("px");
@@ -204,5 +230,111 @@ function aiPasteToMarker_main() {
         } catch (e) {
             // Bỏ qua lỗi tạo mask — anh có thể tự thêm mask bằng tay nếu cần.
         }
+    }
+}
+
+
+/* ==========================================================
+   Tự dán ảnh Gemini vừa TẢI VỀ (file) vào đúng marker
+   - panel theo dõi thư mục Downloads, thấy file mới thì gọi hàm này
+   - docID/layerID là của marker do Copy & Mark tạo (0 = dùng layer đang chọn)
+   Trả về: "OK:..." | "NOMARKER:..." (marker không còn) | "Lỗi: ..."
+   ========================================================== */
+var _aiPlacePath = "";
+
+function aiPlaceFileToMarker(encodedPath, docID, layerID) {
+    if (app.documents.length === 0) return "NOMARKER:Không có document nào đang mở.";
+    var filePath = decodeURIComponent(encodedPath);
+    var f = new File(filePath);
+    if (!f.exists) return "Lỗi: Không thấy file " + filePath;
+
+    docID = parseInt(docID, 10) || 0;
+    layerID = parseInt(layerID, 10) || 0;
+
+    try {
+        if (docID && !_aiActivateDocByID(docID)) {
+            return "NOMARKER:Document chứa marker đã bị đóng.";
+        }
+        if (layerID && !_aiSelectLayerByID(layerID)) {
+            return "NOMARKER:Layer marker không còn (có thể đã dán tay rồi).";
+        }
+        var active = app.activeDocument.activeLayer;
+        if (!layerID && (!active || active.name.indexOf("Pending_AI_") !== 0)) {
+            return "NOMARKER:Không có marker đang chờ.";
+        }
+    } catch (e) {
+        return "NOMARKER:" + e.message;
+    }
+
+    try {
+        _aiPlacePath = filePath;
+        app.activeDocument.suspendHistory("Auto Place AI", "aiPlaceFileToMarker_main()");
+        return "OK:Đã tự dán ảnh " + f.displayName + " vào marker.";
+    } catch (e2) {
+        return "Lỗi: " + e2.message;
+    }
+}
+
+function aiPlaceFileToMarker_main() {
+    _aiInsertAndAlign(function (doc) {
+        var desc = new ActionDescriptor();
+        desc.putPath(charIDToTypeID("null"), new File(_aiPlacePath));
+        desc.putEnumerated(charIDToTypeID("FTcs"), charIDToTypeID("QCSt"), charIDToTypeID("Qcsa"));
+        executeAction(charIDToTypeID("Plc "), desc, DialogModes.NO); // Place Embedded -> Smart Object
+    });
+}
+
+/* ---------- Helper ActionManager (chạy được cả Photoshop đời cũ) ---------- */
+function _aiActiveDocID() {
+    var r = new ActionReference();
+    r.putProperty(charIDToTypeID("Prpr"), stringIDToTypeID("documentID"));
+    r.putEnumerated(charIDToTypeID("Dcmn"), charIDToTypeID("Ordn"), charIDToTypeID("Trgt"));
+    return executeActionGet(r).getInteger(stringIDToTypeID("documentID"));
+}
+
+function _aiActiveLayerID() {
+    var r = new ActionReference();
+    r.putProperty(charIDToTypeID("Prpr"), stringIDToTypeID("layerID"));
+    r.putEnumerated(charIDToTypeID("Lyr "), charIDToTypeID("Ordn"), charIDToTypeID("Trgt"));
+    return executeActionGet(r).getInteger(stringIDToTypeID("layerID"));
+}
+
+function _aiActivateDocByID(docID) {
+    try {
+        if (_aiActiveDocID() === docID) return true;
+    } catch (e) {}
+    for (var i = 1; i <= app.documents.length; i++) {
+        try {
+            var r = new ActionReference();
+            r.putProperty(charIDToTypeID("Prpr"), stringIDToTypeID("documentID"));
+            r.putIndex(charIDToTypeID("Dcmn"), i);
+            if (executeActionGet(r).getInteger(stringIDToTypeID("documentID")) === docID) {
+                var d = new ActionDescriptor();
+                var ref = new ActionReference();
+                ref.putIdentifier(charIDToTypeID("Dcmn"), docID);
+                d.putReference(charIDToTypeID("null"), ref);
+                try {
+                    executeAction(charIDToTypeID("slct"), d, DialogModes.NO);
+                } catch (eSel) {}
+                // Dự phòng cho Photoshop đời cũ: chuyển document bằng DOM
+                if (_aiActiveDocID() !== docID) app.activeDocument = app.documents[i - 1];
+                return _aiActiveDocID() === docID;
+            }
+        } catch (e2) {}
+    }
+    return false;
+}
+
+function _aiSelectLayerByID(layerID) {
+    try {
+        var d = new ActionDescriptor();
+        var ref = new ActionReference();
+        ref.putIdentifier(charIDToTypeID("Lyr "), layerID);
+        d.putReference(charIDToTypeID("null"), ref);
+        d.putBoolean(charIDToTypeID("MkVs"), false);
+        executeAction(charIDToTypeID("slct"), d, DialogModes.NO);
+        return _aiActiveLayerID() === layerID;
+    } catch (e) {
+        return false;
     }
 }

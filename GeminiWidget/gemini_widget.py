@@ -6,6 +6,7 @@ Chi dung ctypes + thu vien chuan Python de tim/pin cua so, va pystray de co
 1 icon nho o khay he thong (system tray) cho anh bat/tat pin hoac thoat.
 """
 
+import atexit
 import ctypes
 import ctypes.wintypes as wintypes
 import json
@@ -117,6 +118,113 @@ ENUM_WINDOWS_PROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LP
 user32.EnumWindows.argtypes = [ENUM_WINDOWS_PROC, wintypes.LPARAM]
 user32.EnumWindows.restype = wintypes.BOOL
 
+user32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+user32.GetClassNameW.restype = ctypes.c_int
+user32.IsIconic.argtypes = [wintypes.HWND]
+user32.IsIconic.restype = wintypes.BOOL
+user32.BringWindowToTop.argtypes = [wintypes.HWND]
+user32.BringWindowToTop.restype = wintypes.BOOL
+user32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
+user32.GetWindowLongW.restype = ctypes.c_long
+kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+kernel32.OpenProcess.restype = wintypes.HANDLE
+kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+kernel32.CloseHandle.restype = wintypes.BOOL
+kernel32.QueryFullProcessImageNameW.argtypes = [wintypes.HANDLE, wintypes.DWORD,
+                                                wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD)]
+kernel32.QueryFullProcessImageNameW.restype = wintypes.BOOL
+
+# Cua so trinh duyet nhan Chromium (Chrome/Edge/Brave/Coc Coc) deu co class nay.
+CHROME_WINDOW_CLASS = "Chrome_WidgetWin_1"
+BROWSER_EXE_NAMES = {"brave.exe", "browser.exe", "chrome.exe", "msedge.exe"}
+STATE_PATH = os.path.join(CONFIG_DIR, "state.json")
+WS_EX_TOPMOST = 0x00000008
+GWL_EXSTYLE = -20
+
+
+def get_class_name(hwnd):
+    buf = ctypes.create_unicode_buffer(256)
+    user32.GetClassNameW(hwnd, buf, 256)
+    return buf.value
+
+
+def get_process_exe_name(hwnd):
+    pid = wintypes.DWORD()
+    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    if not pid.value:
+        return ""
+    h = kernel32.OpenProcess(0x1000, False, pid.value)  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not h:
+        return ""
+    try:
+        buf = ctypes.create_unicode_buffer(1024)
+        size = wintypes.DWORD(1024)
+        if kernel32.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size)):
+            return os.path.basename(buf.value).lower()
+    finally:
+        kernel32.CloseHandle(h)
+    return ""
+
+
+def is_browser_window(hwnd):
+    """Cua so top-level cua trinh duyet Chromium (KHONG BAO GIO la Photoshop, Explorer...)."""
+    if not hwnd or not user32.IsWindow(hwnd) or not user32.IsWindowVisible(hwnd):
+        return False
+    if get_class_name(hwnd) != CHROME_WINDOW_CLASS:
+        return False
+    exe = get_process_exe_name(hwnd)
+    return (exe in BROWSER_EXE_NAMES) if exe else True
+
+
+def is_topmost(hwnd):
+    return bool(user32.GetWindowLongW(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST)
+
+
+def save_state(hwnd):
+    """Ban chinh ghi lai HWND cua so Gemini no dang quan ly, de cac lan goi
+    --autopaste sau (tien trinh moi) tim DUNG cua so, khong phai do theo tieu de."""
+    try:
+        os.makedirs(CONFIG_DIR, exist_ok=True)
+        with open(STATE_PATH, "w", encoding="utf-8") as f:
+            json.dump({"hwnd": int(hwnd), "pid": os.getpid()}, f)
+    except Exception:
+        pass
+
+
+def load_state_hwnd():
+    try:
+        with open(STATE_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        hwnd = int(data.get("hwnd") or 0)
+    except Exception:
+        return None
+    # Chi tin HWND neu no van la cua so trinh duyet Gemini/dang ghim (HWND co the bi tai su dung)
+    if not is_browser_window(hwnd):
+        return None
+    if "gemini" in get_window_title(hwnd).lower() or is_topmost(hwnd):
+        return hwnd
+    return None
+
+
+def clear_state():
+    try:
+        os.remove(STATE_PATH)
+    except Exception:
+        pass
+
+
+def find_running_gemini_hwnd():
+    """Tim cua so Gemini cua ban widget dang chay: uu tien HWND da luu, roi moi do
+    theo tieu de (chi trong cua so trinh duyet, uu tien cua so dang ghim topmost)."""
+    hwnd = load_state_hwnd()
+    if hwnd:
+        return hwnd
+    candidates = list(snapshot_gemini_windows())
+    if not candidates:
+        return None
+    candidates.sort(key=lambda h: 0 if is_topmost(h) else 1)
+    return candidates[0]
+
 
 def find_browser_path():
     """Tim Brave, Coc Coc, Chrome hoac Edge da cai tren may (uu tien Brave/Coc Coc truoc)."""
@@ -159,11 +267,13 @@ def snapshot_gemini_windows():
     dung de sau nay phat hien cua so MOI xuat hien (khac voi cac cua so da co san)."""
     existing = set()
 
+    # CHI xet cua so trinh duyet: truoc day do theo tieu de nen hay bat nham
+    # Photoshop dang mo file "Gemini_Generated_Image_xxx.png" -> dan nguoc vao PS.
     @ENUM_WINDOWS_PROC
     def enum_handler(hwnd, lparam):
         if user32.IsWindowVisible(hwnd):
             title = get_window_title(hwnd)
-            if "gemini" in title.lower():
+            if "gemini" in title.lower() and is_browser_window(hwnd):
                 existing.add(hwnd)
         return True
 
@@ -197,6 +307,8 @@ def find_gemini_hwnd(target_pid, existing_windows, timeout_sec=12):
         title = get_window_title(hwnd)
         if not title:
             return True
+        if get_class_name(hwnd) != CHROME_WINDOW_CLASS:
+            return True  # khong phai cua so trinh duyet -> bo qua
 
         # Cach 1: khop PID
         pid = ctypes.c_ulong()
@@ -206,7 +318,7 @@ def find_gemini_hwnd(target_pid, existing_windows, timeout_sec=12):
             return False
 
         # Cach 2: cua so moi, tieu de chua 'gemini', chua tung thay truoc do
-        if "gemini" in title.lower() and hwnd not in existing_windows:
+        if "gemini" in title.lower() and hwnd not in existing_windows and is_browser_window(hwnd):
             result["value"] = hwnd
             return False
 
@@ -259,7 +371,9 @@ def set_topmost(hwnd, topmost=True):
 
 
 def bring_to_front(hwnd):
-    user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+    # SW_RESTORE chi khi dang thu nho (neu khong se lam mat trang thai maximize)
+    user32.ShowWindow(hwnd, 9 if user32.IsIconic(hwnd) else 5)  # SW_RESTORE / SW_SHOW
+    user32.BringWindowToTop(hwnd)
     user32.SetForegroundWindow(hwnd)
 
 
@@ -340,9 +454,11 @@ def save_click_config(cfg):
         pass
 
 
-def click_input_box(hwnd):
+def click_input_box(hwnd, clicks=2):
     """Click chuot vao o nhap van ban cua Gemini de lay lai focus, roi tra con tro ve cho cu.
-    Chi click khi diem do thuc su thuoc cua so Gemini (khong click mu vao app khac)."""
+    Cach lam chac an hon: rung nhe con tro truoc (Chrome hay bo qua click neu chua thay chuot
+    di chuyen vao cua so), roi click `clicks` lan cach nhau mot nhip. Chi bo qua khi diem do
+    ro rang dang nam duoi MOT CUA SO KHAC (vd. cua so topmost khac che len)."""
     rect = wintypes.RECT()
     if not user32.GetWindowRect(hwnd, ctypes.byref(rect)):
         return False
@@ -354,19 +470,29 @@ def click_input_box(hwnd):
 
     pt = wintypes.POINT(x, y)
     under = user32.WindowFromPoint(pt)
-    if not under or user32.GetAncestor(under, 2) != hwnd:  # GA_ROOT
-        return False
+    if under:
+        root = user32.GetAncestor(under, 2)  # GA_ROOT
+        if root and root != hwnd:
+            return False
 
     old = wintypes.POINT()
     have_old = user32.GetCursorPos(ctypes.byref(old))
-    user32.SetCursorPos(x, y)
-    time.sleep(0.05)
-    user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-    time.sleep(0.04)
-    user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-    time.sleep(0.15)
-    if have_old:
-        user32.SetCursorPos(old.x, old.y)
+    try:
+        # rung nhe de Chrome nhan ra chuot dang o trong cua so
+        user32.SetCursorPos(x - 6, y - 4)
+        time.sleep(0.06)
+        user32.SetCursorPos(x - 2, y - 1)
+        time.sleep(0.06)
+        user32.SetCursorPos(x, y)
+        time.sleep(0.12)
+        for i in range(max(1, clicks)):
+            user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+            time.sleep(0.05)
+            user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+            time.sleep(0.35)  # khoang nghi du de khong thanh double-click chon chu
+    finally:
+        if have_old:
+            user32.SetCursorPos(old.x, old.y)
     return True
 
 
@@ -446,6 +572,7 @@ kernel32.GetCurrentThreadId.restype = wintypes.DWORD
 
 
 def _msgbox(text, flags=0x30):
+    stop_busy_cursor()  # co hop thoai thi tra con tro binh thuong truoc
     ctypes.windll.user32.MessageBoxW(0, text, "GeminiWidget", flags)
 
 
@@ -499,14 +626,166 @@ def set_clipboard_text(text):
         user32.CloseClipboard()
 
 
+AUTOPASTE_SEND_DELAY = 1.0    # giay cho Gemini xu ly anh/prompt vua dan truoc khi bam Enter
+VK_RETURN = 0x0D
+
+# ---------- Con tro chuot "dang tai" trong luc tu dan ----------
+OCR_NORMAL = 32512
+OCR_IBEAM = 32513
+IDC_WAIT = 32514
+SPI_SETCURSORS = 0x0057
+
+user32.LoadCursorW.argtypes = [wintypes.HINSTANCE, ctypes.c_void_p]
+user32.LoadCursorW.restype = wintypes.HANDLE
+user32.CopyImage.argtypes = [wintypes.HANDLE, wintypes.UINT, ctypes.c_int, ctypes.c_int, wintypes.UINT]
+user32.CopyImage.restype = wintypes.HANDLE
+user32.SetSystemCursor.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+user32.SetSystemCursor.restype = wintypes.BOOL
+user32.SystemParametersInfoW.argtypes = [wintypes.UINT, wintypes.UINT, ctypes.c_void_p, wintypes.UINT]
+user32.SystemParametersInfoW.restype = wintypes.BOOL
+
+_busy_cursor_on = False
+
+
+def start_busy_cursor():
+    """Doi con tro he thong (mui ten + o go chu) thanh vong xoay 'dang tai'."""
+    global _busy_cursor_on
+    if _busy_cursor_on:
+        return
+    try:
+        for target in (OCR_NORMAL, OCR_IBEAM):
+            # SetSystemCursor huy handle nen phai copy ban moi cho moi lan
+            wait = user32.LoadCursorW(None, IDC_WAIT)
+            copy = user32.CopyImage(wait, 2, 0, 0, 0)  # IMAGE_CURSOR
+            if copy:
+                user32.SetSystemCursor(copy, target)
+        _busy_cursor_on = True
+    except Exception:
+        pass
+
+
+def stop_busy_cursor():
+    """Tra con tro ve theme goc cua nguoi dung."""
+    global _busy_cursor_on
+    if not _busy_cursor_on:
+        return
+    try:
+        user32.SystemParametersInfoW(SPI_SETCURSORS, 0, None, 0)
+    except Exception:
+        pass
+    _busy_cursor_on = False
+
+
+atexit.register(stop_busy_cursor)
+
+
+VK_SHIFT = 0x10
+VK_MENU = 0x12
+MOUSEEVENTF_MOVE = 0x0001
+CF_BITMAP = 2
+CF_DIB = 8
+CF_DIBV5 = 17
+
+user32.MapVirtualKeyW.argtypes = [wintypes.UINT, wintypes.UINT]
+user32.MapVirtualKeyW.restype = wintypes.UINT
+user32.IsClipboardFormatAvailable.argtypes = [wintypes.UINT]
+user32.IsClipboardFormatAvailable.restype = wintypes.BOOL
+user32.GetClipboardData.argtypes = [wintypes.UINT]
+user32.GetClipboardData.restype = wintypes.HANDLE
+user32.RegisterClipboardFormatW.argtypes = [wintypes.LPCWSTR]
+user32.RegisterClipboardFormatW.restype = wintypes.UINT
+user32.AllowSetForegroundWindow.argtypes = [wintypes.DWORD]
+user32.AllowSetForegroundWindow.restype = wintypes.BOOL
+kernel32.GlobalSize.argtypes = [wintypes.HANDLE]
+kernel32.GlobalSize.restype = ctypes.c_size_t
+
+TIMING_CONFIG_PATH = os.path.join(CONFIG_DIR, "timing_config.json")
+
+
+def load_timing():
+    """Cho phep chinh moc thoi gian khong can build lai: tao file
+    %APPDATA%\\GeminiWidget\\timing_config.json, vd {"image_wait": 3, "send_delay": 2}."""
+    t = {
+        "load_wait": AUTOPASTE_LOAD_WAIT,
+        "focus_delay": AUTOPASTE_FOCUS_DELAY,
+        "image_wait": AUTOPASTE_IMAGE_WAIT,
+        "send_delay": AUTOPASTE_SEND_DELAY,
+        "per_mb": 0.4,       # cong them moi MB anh (anh to upload lau hon)
+        "max_extra": 6.0,    # cong them toi da
+        "auto_enter": True,
+        "wait_result": True,      # sau khi gui, cho anh duoc "Sao chep" trong Gemini roi tra ve Photoshop
+        "result_timeout": 600.0,  # cho toi da 10 phut
+    }
+    try:
+        with open(TIMING_CONFIG_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        for k in t:
+            if k in data:
+                t[k] = bool(data[k]) if k in ("auto_enter", "wait_result") else max(0.0, float(data[k]))
+    except Exception:
+        pass
+    return t
+
+
+def _key(vk, up=False):
+    scan = user32.MapVirtualKeyW(vk, 0)  # MAPVK_VK_TO_VSC — Chrome on dinh hon khi co scan code
+    user32.keybd_event(vk, scan & 0xFF, KEYEVENTF_KEYUP if up else 0, 0)
+
+
+def release_stray_modifiers():
+    """Neu Shift/Alt dang bi giu, Ctrl+V se thanh Ctrl+Shift+V (dan chu tron -> MAT ANH)."""
+    for vk in (VK_SHIFT, VK_MENU):
+        if user32.GetAsyncKeyState(vk) & 0x8000:
+            _key(vk, up=True)
+
+
+def press_enter():
+    _key(VK_RETURN)
+    time.sleep(0.03)
+    _key(VK_RETURN, up=True)
+
+
 def press_ctrl_v():
-    user32.keybd_event(VK_CONTROL, 0, 0, 0)
-    time.sleep(0.03)
-    user32.keybd_event(VK_V, 0, 0, 0)
-    time.sleep(0.03)
-    user32.keybd_event(VK_V, 0, KEYEVENTF_KEYUP, 0)
-    time.sleep(0.03)
-    user32.keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0)
+    release_stray_modifiers()
+    _key(VK_CONTROL)
+    time.sleep(0.04)
+    _key(VK_V)
+    time.sleep(0.04)
+    _key(VK_V, up=True)
+    time.sleep(0.04)
+    _key(VK_CONTROL, up=True)
+
+
+def clipboard_image_size(timeout=4.0):
+    """Doi clipboard CO ANH (Photoshop copy xong) va tra ve kich thuoc byte (0 neu khong do duoc).
+    Goi GetClipboardData cung buoc Photoshop 'render' anh ngay (Photoshop dung delayed
+    rendering) -> luc Chrome dan se lay duoc anh tron ven, khong bi treo/cut giua chung.
+    Tra ve None neu het gio ma clipboard van khong co anh."""
+    png = user32.RegisterClipboardFormatW("PNG")
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        has_img = any(user32.IsClipboardFormatAvailable(f) for f in (CF_DIB, CF_DIBV5, CF_BITMAP, png))
+        if has_img:
+            size = 0
+            if user32.OpenClipboard(None):
+                try:
+                    for fmt in (CF_DIB, CF_DIBV5, png):
+                        if user32.IsClipboardFormatAvailable(fmt):
+                            h = user32.GetClipboardData(fmt)
+                            if h:
+                                size = kernel32.GlobalSize(h)
+                                break
+                finally:
+                    user32.CloseClipboard()
+            return size
+        time.sleep(0.1)
+    return None
+
+
+def _nudge_input():
+    """Gui 1 su kien chuot 'dung yen' -> tien trinh nay thanh noi nhan input cuoi cung,
+    Windows se cho phep SetForegroundWindow (foreground lock)."""
+    user32.mouse_event(MOUSEEVENTF_MOVE, 0, 0, 0, 0)
 
 
 def focus_window_strict(hwnd, timeout=2.5):
@@ -515,6 +794,10 @@ def focus_window_strict(hwnd, timeout=2.5):
     nham vao Photoshop (Ctrl+V trong Photoshop se tao layer la)."""
     deadline = time.time() + timeout
     while time.time() < deadline:
+        if user32.GetForegroundWindow() == hwnd:
+            return True
+        _nudge_input()
+        user32.AllowSetForegroundWindow(0xFFFFFFFF)  # ASFW_ANY
         fg = user32.GetForegroundWindow()
         cur_tid = kernel32.GetCurrentThreadId()
         fg_tid = user32.GetWindowThreadProcessId(fg, None) if fg else 0
@@ -524,49 +807,254 @@ def focus_window_strict(hwnd, timeout=2.5):
         finally:
             if attached:
                 user32.AttachThreadInput(cur_tid, fg_tid, False)
-        time.sleep(0.2)
+        time.sleep(0.15)
         if user32.GetForegroundWindow() == hwnd:
             return True
     return False
 
 
+def ensure_gemini_foreground(hwnd, click=True, attempts=4):
+    """Dam bao Gemini THAT SU la cua so dang nhan phim.
+    - click=True: click vao o nhap (dat con tro go chu vao o chat) — dung truoc lan dan dau.
+    - click=False: chi click khi bi mat focus va khong lay lai duoc bang cach thuong
+      (click lai sau khi da dan anh co the trung thumbnail/nut X xoa anh -> mat anh).
+    Tra ve False neu khong chac -> nguoi goi phai DUNG, khong gui phim."""
+    if not user32.IsWindow(hwnd):
+        return False
+    for _ in range(attempts):
+        if user32.GetForegroundWindow() != hwnd:
+            focus_window_strict(hwnd, timeout=1.2)
+        if click or user32.GetForegroundWindow() != hwnd:
+            # Click chuot len cua so luon kich hoat duoc no, ke ca khi Windows chan SetForegroundWindow
+            click_input_box(hwnd, clicks=1)
+            time.sleep(0.25)
+            click = False  # da click 1 lan la du, khong click lap lai
+        if user32.GetForegroundWindow() == hwnd:
+            return True
+        time.sleep(0.2)
+    return False
+
+
+def _send_if_foreground(hwnd, action):
+    """Kiem tra NGAY truoc khi gui phim (khong co khoang nghi o giua)."""
+    if user32.GetForegroundWindow() != hwnd:
+        return False
+    action()
+    return True
+
+
+# Chi 1 tien trinh duoc tu dan tai 1 thoi diem (bam Copy & Mark 2 lan lien tiep
+# truoc day se co 2 tien trinh cung gui phim, dan chen lan nhau).
+AUTOPASTE_MUTEX_NAME = "Local\\GeminiWidget_Autopaste_Mutex_ImaFlow"
+kernel32.CreateMutexW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
+kernel32.CreateMutexW.restype = wintypes.HANDLE
+kernel32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+kernel32.WaitForSingleObject.restype = wintypes.DWORD
+kernel32.ReleaseMutex.argtypes = [wintypes.HANDLE]
+kernel32.ReleaseMutex.restype = wintypes.BOOL
+
+
 def autopaste_to_gemini(hwnd, prompt_text, initial_wait=0.0):
-    """Dan anh (dang co san trong clipboard) roi dan prompt vao cua so Gemini."""
+    """Dan anh (dang co san trong clipboard) roi dan prompt vao cua so Gemini.
+    Truoc MOI lan gui phim (Ctrl+V, Enter) deu kiem tra Gemini dang la cua so tren cung;
+    neu khong thi dung han, tuyet doi khong gui phim vao Photoshop."""
+    mutex = kernel32.CreateMutexW(None, False, AUTOPASTE_MUTEX_NAME)
+    got = mutex and kernel32.WaitForSingleObject(mutex, 30000) in (0, 0x80)  # OBJECT / ABANDONED
+    start_busy_cursor()
     try:
+        timing = load_timing()
         if initial_wait:
             time.sleep(initial_wait)
 
-        if not focus_window_strict(hwnd):
-            _msgbox("Khong dua duoc cua so Gemini ra truoc nen da DUNG, khong dan gi ca "
-                    "(de tranh dan nham vao Photoshop).\n\n"
-                    "Bam vao cua so Gemini roi dan tay (Ctrl+V) nhe.")
+        # Lop bao ve cuoi: tuyet doi khong gui phim neu HWND khong phai cua so trinh duyet
+        if not is_browser_window(hwnd):
+            _msgbox("Khong tim thay dung cua so Gemini (trinh duyet) nen da DUNG, khong dan gi ca.")
             return False
 
-        time.sleep(AUTOPASTE_FOCUS_DELAY)
-        # Focus o nhap van ban hay bi mat -> click vao o nhap truoc khi dan
-        # (neu diem click khong nam trong cua so Gemini thi bo qua, van dan binh thuong)
-        if click_input_box(hwnd):
-            time.sleep(0.25)
-        press_ctrl_v()  # dan anh
+        img_size = clipboard_image_size()
+        if img_size is None:
+            _msgbox("Clipboard khong co anh (Photoshop chua copy xong?) nen da DUNG.\n\n"
+                    "Thu bam Copy & Mark lai nhe.")
+            return False
+        extra = min(timing["max_extra"], (img_size / 1048576.0) * timing["per_mb"])
+
+        if not ensure_gemini_foreground(hwnd, click=True):
+            _msgbox("Khong dua duoc / giu duoc focus o cua so Gemini nen da DUNG, khong dan gi ca "
+                    "(de tranh dan nham vao Photoshop).\n\n"
+                    "Bam vao o chat cua Gemini roi dan tay (Ctrl+V) nhe.")
+            return False
+        time.sleep(timing["focus_delay"])
+        if not _send_if_foreground(hwnd, press_ctrl_v):  # dan anh
+            if not (ensure_gemini_foreground(hwnd, click=True) and _send_if_foreground(hwnd, press_ctrl_v)):
+                _msgbox("Gemini mat focus ngay truoc khi dan anh nen da DUNG. Dan tay (Ctrl+V) nhe.")
+                return False
 
         if not prompt_text.strip():
             return True
 
-        time.sleep(AUTOPASTE_IMAGE_WAIT)
+        # Cho anh tai len (anh cang to cho cang lau)
+        time.sleep(timing["image_wait"] + extra)
 
-        if user32.GetForegroundWindow() != hwnd:
-            _msgbox("Cua so Gemini khong con o tren cung nen da dung truoc buoc dan prompt "
-                    "(anh da duoc dan). Dan prompt tay nhe.")
-            return False
         if not set_clipboard_text(prompt_text):
             _msgbox("Khong dua duoc prompt vao clipboard. Anh da duoc dan, hay dan prompt tay nhe.")
             return False
-
         time.sleep(0.15)
-        press_ctrl_v()  # dan prompt
+
+        if not ensure_gemini_foreground(hwnd, click=False):
+            _msgbox("Cua so Gemini khong con o tren cung nen da dung truoc buoc dan prompt "
+                    "(anh da duoc dan). Prompt dang nam san trong clipboard, dan tay nhe.")
+            return False
+        if not _send_if_foreground(hwnd, press_ctrl_v):  # dan prompt
+            return False
+
+        if not timing["auto_enter"]:
+            return True
+
+        # Cho Gemini nhan anh + chu roi moi bam Enter de gui
+        time.sleep(timing["send_delay"] + extra * 0.5)
+        stop_busy_cursor()
+        return _send_if_foreground(hwnd, press_enter)  # mat top -> khong gui Enter nham app khac
+    except Exception:
+        return False
+    finally:
+        stop_busy_cursor()
+        if got:
+            kernel32.ReleaseMutex(mutex)
+        if mutex:
+            kernel32.CloseHandle(mutex)
+
+
+# ---------- Cho anh ket qua duoc "Sao chep" trong Gemini -> gui ve Photoshop ----------
+# Sau khi gui (Enter), widget xoa clipboard roi theo doi: anh DAU TIEN duoc sao chep
+# (khong phai do Photoshop copy) se duoc luu thanh file PNG trong RESULTS_DIR.
+# Panel imaFlow theo doi thu muc nay va tu dan anh vao dung marker (ten file mang ID marker).
+RESULTS_DIR = os.path.join(CONFIG_DIR, "results")
+CURRENT_REQUEST_PATH = os.path.join(RESULTS_DIR, "current_request.txt")
+
+user32.GetClipboardSequenceNumber.argtypes = []
+user32.GetClipboardSequenceNumber.restype = wintypes.DWORD
+user32.GetClipboardOwner.argtypes = []
+user32.GetClipboardOwner.restype = wintypes.HWND
+
+
+def begin_request():
+    """Danh dau yeu cau moi nhat. Ban cu dang cho anh se tu dung lai (anh sao chep tiep theo
+    thuoc ve lan Copy & Mark moi nhat)."""
+    req = "{}_{}".format(int(time.time() * 1000), os.getpid())
+    try:
+        os.makedirs(RESULTS_DIR, exist_ok=True)
+        with open(CURRENT_REQUEST_PATH, "w", encoding="utf-8") as f:
+            f.write(req)
+    except Exception:
+        pass
+    return req
+
+
+def is_current_request(req):
+    try:
+        with open(CURRENT_REQUEST_PATH, "r", encoding="utf-8") as f:
+            return f.read().strip() == req
+    except Exception:
+        return True
+
+
+def clear_clipboard():
+    for _ in range(20):
+        if user32.OpenClipboard(None):
+            try:
+                user32.EmptyClipboard()
+            finally:
+                user32.CloseClipboard()
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def clipboard_has_image():
+    png = user32.RegisterClipboardFormatW("PNG")
+    return any(user32.IsClipboardFormatAvailable(f) for f in (CF_DIB, CF_DIBV5, CF_BITMAP, png))
+
+
+def clipboard_owner_exe():
+    owner = user32.GetClipboardOwner()
+    return get_process_exe_name(owner) if owner else ""
+
+
+def save_clipboard_image(path):
+    """Luu anh trong clipboard ra PNG (ghi file tam roi doi ten -> panel khong doc file do dang)."""
+    try:
+        from PIL import Image, ImageGrab
+        data = ImageGrab.grabclipboard()
+        if isinstance(data, list):  # copy file anh (vd. tu Explorer)
+            data = next((Image.open(p) for p in data
+                         if p.lower().endswith((".png", ".jpg", ".jpeg", ".webp", ".bmp"))), None)
+        if data is None:
+            return False
+        if data.mode not in ("RGB", "RGBA"):
+            data = data.convert("RGBA")
+        tmp = path + ".tmp"
+        data.save(tmp, "PNG")
+        os.replace(tmp, path)
         return True
     except Exception:
         return False
+
+
+def cleanup_old_results(max_age=24 * 3600):
+    try:
+        now = time.time()
+        for name in os.listdir(RESULTS_DIR):
+            p = os.path.join(RESULTS_DIR, name)
+            if name.startswith("imaflow_result_") and now - os.path.getmtime(p) > max_age:
+                os.remove(p)
+    except Exception:
+        pass
+
+
+def wait_for_result_image(req, marker, timeout):
+    """Xoa clipboard, cho anh DAU TIEN duoc sao chep, luu ra file cho panel. Chi nhan 1 anh."""
+    cleanup_old_results()
+    clear_clipboard()
+    seq = user32.GetClipboardSequenceNumber()
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        time.sleep(0.3)
+        if not is_current_request(req):
+            return False  # da co lan Copy & Mark moi hon -> nhuong cho no
+        cur = user32.GetClipboardSequenceNumber()
+        if cur == seq:
+            continue
+        time.sleep(0.2)  # trinh duyet co the ghi nhieu dinh dang lien tiep, cho ghi xong
+        seq = user32.GetClipboardSequenceNumber()
+        if not clipboard_has_image():
+            continue  # sao chep chu -> bo qua, cho tiep
+        if clipboard_owner_exe() == "photoshop.exe" or \
+                get_process_exe_name(user32.GetForegroundWindow()) == "photoshop.exe":
+            continue  # anh do Photoshop copy (Copy & Mark) -> khong phai ket qua
+        safe_marker = "".join(c if c.isdigit() else "_" for c in (marker or "0|0"))
+        name = "imaflow_result_{}_{}.png".format(safe_marker, int(time.time() * 1000))
+        if save_clipboard_image(os.path.join(RESULTS_DIR, name)):
+            return True
+    return False
+
+
+def run_autopaste(hwnd, prompt_path, marker, initial_wait=0.0, before_wait=None):
+    """Dan anh + prompt, gui, roi (neu bat) cho anh ket qua duoc sao chep."""
+    req = begin_request()
+    ok = autopaste_to_gemini(hwnd, read_prompt_file(prompt_path), initial_wait)
+    timing = load_timing()
+    if ok and timing["wait_result"]:
+        if before_wait:
+            before_wait()
+        wait_for_result_image(req, marker, timing["result_timeout"])
+    return ok
+
+
+def parse_marker_arg(argv):
+    if "--marker" in argv:
+        i = argv.index("--marker")
+        return argv[i + 1] if i + 1 < len(argv) else ""
+    return ""
 
 
 def parse_autopaste_arg(argv):
@@ -602,6 +1090,8 @@ def watch_and_remember_window(hwnd):
 
         if not user32.IsWindow(hwnd):
             # Cua so da bi dong (anh bam X) -> thoat luon ung dung
+            stop_busy_cursor()
+            clear_state()
             os._exit(0)
 
         rect = get_window_rect(hwnd)
@@ -622,11 +1112,12 @@ def watch_and_remember_window(hwnd):
 
 
 class GeminiWidgetApp:
-    def __init__(self, autopaste=False, prompt_path=""):
+    def __init__(self, autopaste=False, prompt_path="", marker=""):
         self.hwnd = None
         self.pinned = True
         self.autopaste = autopaste
         self.prompt_path = prompt_path
+        self.marker = marker
 
     def start(self):
         browser_path = find_browser_path()
@@ -653,6 +1144,7 @@ class GeminiWidgetApp:
             )
             return
 
+        save_state(self.hwnd)  # de cac lan --autopaste sau tim dung cua so nay
         pinned_ok = apply_geometry_and_topmost(self.hwnd, window_cfg)
         if not pinned_ok:
             # Cua so co the van con dang "on dinh" layout ngay sau khi tao —
@@ -687,8 +1179,8 @@ class GeminiWidgetApp:
             # Cua so vua MOI mo nen cho Gemini tai xong roi moi dan; chay o thread
             # rieng de khong chan icon khay he thong.
             threading.Thread(
-                target=lambda: autopaste_to_gemini(
-                    self.hwnd, read_prompt_file(self.prompt_path), AUTOPASTE_LOAD_WAIT),
+                target=lambda: run_autopaste(
+                    self.hwnd, self.prompt_path, self.marker, AUTOPASTE_LOAD_WAIT),
                 daemon=True,
             ).start()
 
@@ -729,6 +1221,7 @@ class GeminiWidgetApp:
             if rect and rect["w"] > 50 and rect["h"] > 50:
                 save_window_config(rect)
             user32.PostMessageW(self.hwnd, 0x0010, 0, 0)  # WM_CLOSE
+        clear_state()
         if icon:
             icon.stop()
         sys.exit(0)
@@ -770,23 +1263,29 @@ class GeminiWidgetApp:
 
 if __name__ == "__main__":
     _autopaste, _prompt_path = parse_autopaste_arg(sys.argv)
+    _marker = parse_marker_arg(sys.argv)
+    if _autopaste:
+        start_busy_cursor()
     _mutex_handle, _already_running = acquire_single_instance_lock()
 
     if _already_running:
-        # Da co ban khac dang chay: tim cua so Gemini dang mo san.
-        _existing = snapshot_gemini_windows()
-        if _autopaste and not _existing:
-            # Ban kia co the vua khoi dong, cua so chua kip hien -> doi toi 10 giay
-            for _ in range(20):
+        # Da co ban khac dang chay: lay DUNG cua so Gemini ma ban do dang quan ly
+        # (HWND luu trong state.json), khong do bua theo tieu de nua.
+        _hwnd = find_running_gemini_hwnd()
+        if _autopaste and not _hwnd:
+            # Ban kia co the vua khoi dong, cua so chua kip hien -> doi toi 12 giay
+            for _ in range(24):
                 time.sleep(0.5)
-                _existing = snapshot_gemini_windows()
-                if _existing:
+                _hwnd = find_running_gemini_hwnd()
+                if _hwnd:
                     break
-        if _existing:
-            _hwnd = next(iter(_existing))
+        if _hwnd:
             set_topmost(_hwnd, True)
             if _autopaste:
-                autopaste_to_gemini(_hwnd, read_prompt_file(_prompt_path))
+                # Truoc khi ngoi cho anh ket qua (co the vai phut), tra lai khoa "1 ban duy nhat"
+                # de khong lam lan mo sau tuong widget van con chay.
+                run_autopaste(_hwnd, _prompt_path, _marker,
+                              before_wait=lambda: kernel32.CloseHandle(_mutex_handle))
             else:
                 bring_to_front(_hwnd)
         else:
@@ -795,4 +1294,4 @@ if __name__ == "__main__":
                     "canh dong ho) — cua so Gemini van dang mo o do.", 0x40)
         sys.exit(0)
 
-    GeminiWidgetApp(_autopaste, _prompt_path).start()
+    GeminiWidgetApp(_autopaste, _prompt_path, _marker).start()

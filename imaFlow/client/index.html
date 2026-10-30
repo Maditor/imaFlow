@@ -32,6 +32,31 @@
             <textarea id="promptText" rows="5" placeholder="Soạn / dán prompt ở đây, tự lưu lại..."></textarea>
         </div>
 
+        <div class="settingsSection">
+            <label>Tự dán ảnh kết quả về Photoshop</label>
+            <label class="checkboxLabel">
+                <input type="checkbox" id="autoPlaceCheckbox" checked />
+                <span>Khi sao chép từ Gemini</span>
+            </label>
+            <label class="checkboxLabel">
+                <input type="checkbox" id="autoPlaceDlCheckbox" />
+                <span>Khi tải về</span>
+            </label>
+            <div id="autoPlaceDlOptions" class="subOptions">
+                <div class="settingsRow">
+                    <input type="text" id="autoPlaceDirInput" class="textInput" placeholder="Thư mục Downloads" />
+                    <button id="browseDirBtn" class="smallBtn">Chọn...</button>
+                </div>
+                <input type="text" id="autoPlacePrefixInput" class="textInput" placeholder="Tên file bắt đầu bằng (để trống = mọi ảnh)" title="Chỉ dán file có tên bắt đầu bằng chuỗi này. Để trống = mọi file ảnh mới." />
+                <label class="checkboxLabel">
+                    <input type="checkbox" id="autoPlaceDeleteCheckbox" />
+                    <span>Xoá file ảnh sau khi dán xong</span>
+                </label>
+            </div>
+        </div>
+
+        <hr class="divider" />
+
         <div class="settingsSection checkboxRow">
             <label class="checkboxLabel">
                 <input type="checkbox" id="hideStatusCheckbox" />

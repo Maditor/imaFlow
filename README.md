@@ -1,6 +1,6 @@
-# imaFlow — CEP Extension cho Photoshop
+# 🪄 imaFlow — CEP Extension cho Photoshop
 
-Panel tiện ích trong Photoshop hỗ trợ workflow **redraw ảnh bằng AI** (Gemini "Nano Banana"): copy vùng chọn, dán ảnh AI trả về, tự canh chỉnh vị trí — không cần copy-paste thủ công từng bước. Tương thích **Photoshop CC 2018 (v19.0) trở lên**
+Panel tiện ích trong Photoshop hỗ trợ workflow **redraw ảnh bằng AI** (Gemini "Nano Banana"): copy vùng chọn, dán ảnh AI trả về, tự canh chỉnh vị trí — không cần copy-paste thủ công từng bước. Tương thích **Photoshop CC 2018 (v19.0) trở lên**, cả Windows lẫn macOS.
 
 ## ✨ Tính năng
 
@@ -17,10 +17,14 @@ Icon các nút dùng SVG line-art đơn sắc, đồng bộ với các CEP exten
 1. Trong Photoshop, khoanh **vùng chọn** cần redraw.
 2. Bấm **Copy & Mark** — vùng chọn được copy vào clipboard, một layer marker được tạo để đánh dấu vị trí.
 3. Bấm **Mở Gemini** (đã cài đặt sẵn đường dẫn `GeminiWidget.exe` trong Cài đặt để tự ghim nổi), dán ảnh (`Ctrl+V`) và bấm **Prompt** để copy nhanh prompt đã soạn sẵn, generate ảnh.
-4. Copy ảnh kết quả từ Gemini.
-5. Quay lại Photoshop, **chọn đúng layer marker** vừa tạo ở bước 2.
-6. Bấm **Paste & Align** — ảnh AI được dán vào, tự resize và canh đúng vị trí, kèm mask sẵn.
-7. Chỉnh màu/blend layer cho khớp nếu cần.
+4. Ảnh tạo xong, bấm **Sao chép ảnh** trong Gemini → ảnh **tự dán vào đúng marker** trong Photoshop (resize, canh vị trí, mask) — không cần quay lại Photoshop.
+   - Cách thủ công vẫn dùng được: copy ảnh trong Gemini → chọn layer marker → bấm **Paste & Align**.
+5. Chỉnh màu/blend layer cho khớp nếu cần.
+
+### Tự dán ảnh kết quả (Cài đặt → "Tự dán ảnh kết quả về Photoshop")
+- Sau khi GeminiWidget nhấn Enter gửi đi, nó **xoá clipboard** rồi chờ **ảnh đầu tiên** được sao chép (bỏ qua chữ, bỏ qua ảnh do Photoshop copy). Ảnh được lưu tạm vào `%APPDATA%\GeminiWidget\results\` kèm ID marker; panel thấy file là dán vào đúng marker đó rồi xoá file tạm.
+- Chỉ nhận 1 ảnh cho mỗi lần gửi, chờ tối đa 10 phút. Bấm Copy & Mark lần mới thì lần chờ cũ tự huỷ (ảnh sao chép tiếp theo thuộc về lần mới nhất).
+- Tuỳ chọn thêm: tự dán khi **tải ảnh về** một thư mục (mặc định tắt).
 
 ## 📦 Cài đặt panel imaFlow
 
@@ -56,7 +60,7 @@ Icon các nút dùng SVG line-art đơn sắc, đồng bộ với các CEP exten
 `GeminiWidget` là app nhỏ đi kèm, mở Gemini bằng Chrome/Brave/Cốc Cốc/Edge thật (app-mode, không thanh tab) và tự ghim **always-on-top** bằng Win32 API — không cần cài PowerToys hay công cụ ngoài nào khác.
 
 - Tự nhớ kích thước & vị trí cửa sổ giữa các lần mở.
-- Tự dán: sau khi **Copy & Mark** widget đưa Gemini ra trước, dán ảnh rồi dán prompt (không tự bấm Enter). Nếu không đưa được Gemini ra trước, nó dừng lại thay vì dán nhầm vào Photoshop.
+- Tự dán: sau khi **Copy & Mark** widget đưa Gemini ra trước, dán ảnh rồi dán prompt (rồi tự nhấn Enter để gửi). Nếu không đưa được Gemini ra trước, nó dừng lại thay vì dán nhầm vào Photoshop.
 - Chỉ chạy 1 bản duy nhất — bấm mở lần nữa sẽ tự đưa cửa sổ cũ ra trước thay vì mở trùng.
 - Icon riêng (hình ghim), có icon khay hệ thống để bật/tắt ghim hoặc thoát.
 

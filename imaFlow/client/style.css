@@ -99,7 +99,8 @@ body {
     gap: 6px;
 }
 
-#exePathInput {
+#exePathInput,
+.textInput {
     flex: 1;
     min-width: 0;
     background: #1e1e1e;
@@ -110,7 +111,8 @@ body {
     font-size: 11px;
 }
 
-#browseExeBtn {
+#browseExeBtn,
+.smallBtn {
     background: #4a4a4a;
     border: none;
     color: #ddd;
@@ -121,7 +123,8 @@ body {
     white-space: nowrap;
 }
 
-#browseExeBtn:hover {
+#browseExeBtn:hover,
+.smallBtn:hover {
     background: #5a5a5a;
 }
 
@@ -143,7 +146,8 @@ body {
     align-items: center;
 }
 
-.checkboxLabel {
+.checkboxLabel,
+.settingsSection .checkboxLabel {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -158,6 +162,9 @@ body {
 .checkboxLabel input[type="checkbox"] {
     width: 13px;
     height: 13px;
+    min-width: 13px;
+    flex: 0 0 13px;   /* khong bi co lai khi chu dai -> moi o tick bang nhau */
+    margin: 0;
     cursor: pointer;
     accent-color: #4d90fe;
 }
@@ -185,4 +192,24 @@ body {
 
 #aiStatus.hidden {
     display: none;
+}
+
+/* Tuy chon con cua "tai anh ve thu muc" */
+.subOptions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-left: 19px;
+}
+
+.subOptions.hidden {
+    display: none;
+}
+
+/* Duong ke ngan cach cac nhom cai dat */
+.divider {
+    border: none;
+    border-top: 1px solid #4d4d4d;
+    margin: 2px 0;
+    width: 100%;
 }
