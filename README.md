@@ -6,7 +6,7 @@ Panel Photoshop giúp redraw ảnh bằng Gemini: khoanh vùng → AI vẽ lại
 
 ## 🖼️ Cách dùng
 
-1. Khoanh vùng chọn → bấm **Copy & Mark**.
+1. Khoanh vùng chọn (Khuyên dùng 512 x 512 px hoặc 768 x 768 px) → bấm **Copy & Mark**.
 2. GeminiWidget tự dán ảnh + prompt vào Gemini và gửi đi.
 3. Ảnh tạo xong → bấm **Sao chép ảnh** trong Gemini → ảnh tự dán vào đúng vị trí trong Photoshop.
 
